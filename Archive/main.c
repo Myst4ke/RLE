@@ -99,8 +99,8 @@ void menuFunc(int item) {
         Display();
         break;
     case 2:
-        printf("sobel\n");
-        sobel(image);
+        printf("RLE intel\n");
+        RLE_intel(image);
         Display();
         break;
     case 3:
@@ -120,7 +120,9 @@ void menuFunc(int item) {
         break;
     case 7:
         printf("RLE\n");
+        printf("appel RLE\n");
         RLE(image);
+        printf("fin RLE\n");
         Display();
     default:
         break;
@@ -145,7 +147,7 @@ int main(int argc, char **argv) {
     glutCreateMenu(menuFunc);
     glutAddMenuEntry("Quit", 0);
     glutAddMenuEntry("gris", 1);
-    glutAddMenuEntry("Sobel", 2);
+    glutAddMenuEntry("RLE intel", 2);
     glutAddMenuEntry("GRIS", 3);
     glutAddMenuEntry("grey", 4);
     glutAddMenuEntry("RLE", 7);
