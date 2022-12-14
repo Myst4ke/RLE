@@ -1,0 +1,117 @@
+Cas de test :
+Couleur actuelle est égale à couleur suivante ->
+
+1) Si le multiplicateur == 1
+-> On incrémente le multiplicateur.
+
+2) Si le multiplicateur est négatif
+-> On vérifie que la 2eme couleur suivante est aussi la même
+(pour éviter d'ajouter seulement 2 couleurs similaire)
+-> On on enlève 1 au multiplicateur
+-> On ajoute un nouveau multiplicateur
+-> On ajoute la couleur
+Sinon on diminue le multiplicateur et on ajoute la couleur
+
+3) Si le multiplicateur est négatif et atteint son max
+-> On on enlève 1 au multiplicateur
+-> On ajoute un nouveau multiplicateur
+-> On ajoute la couleur
+
+4) Si le multiplicateur positif atteint son max
+-> On ajoute un nouveau multiplicateur à 1
+-> La distance au multiplicateur = 1
+-> On ajoute une nouvelle couleur
+
+5) Cas par défaut
+-> On incrémente le multiplicateur
+
+Couleur actuelle est différente de couleur suivante ->
+
+6) Si le multiplicateur == 1
+-> On augmente le multiplicateur à -2 (254)
+-> On ajoute la couleur
+
+7) Si le multiplicateur est positif ou atteint son max (-128)
+-> On augmente la taille
+-> La distance au multiplicateur = 1
+-> On ajoute un nouveau multiplicateur
+-> On ajoute une nouvelle couleur
+
+8) Si le multiplicateur est négatif
+-> On diminue le multiplicateur
+-> On augmente la taille et la distance au multiplicateur
+-> On ajoute une nouvelle couleur
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void RLE(Image *img) {
+  int i, nb_pixels, cp_size = 0, idx_size = 1, iterator = 0;
+  nb_pixels = img->sizeX * img->sizeY;
+  GLubyte *crt;
+  GLubyte *cpressed = malloc(nb_pixels * 3 * sizeof(GLubyte));
+  int *index = malloc(nb_pixels * sizeof(int));
+  index[0] = 1;
+  for (crt = img->data, i = 0; i < nb_pixels * 3; i++) {
+    if (i > 2) {
+      if (cpressed[cp_size - 3] == crt[i] &&
+          cpressed[cp_size - 2] == crt[i + 1] &&
+          cpressed[cp_size - 1] == crt[i + 2]) {
+
+        printf("(%d, %d, %d) = (%d, %d, %d)\n", cpressed[cp_size - 3],
+               cpressed[cp_size - 2], cpressed[cp_size - 1], crt[i], crt[i + 1],
+               crt[i + 2]);
+        //print_int_vec(index, idx_size);
+        print_byte_vec(cpressed, cp_size);
+        index[iterator] += 1;
+        i += 2;
+      } else {
+
+        printf("(%d, %d, %d) != (%d, %d, %d)\n", cpressed[cp_size - 3],
+               cpressed[cp_size - 2], cpressed[cp_size - 1], crt[i], crt[i + 1],
+               crt[i + 2]);
+        //print_int_vec(index, idx_size);
+        print_byte_vec(cpressed, cp_size);
+
+        iterator++;
+        idx_size++;
+        index[iterator] = 1;
+        cpressed[cp_size] = crt[i];
+        cpressed[cp_size + 1] = crt[i + 1];
+        cpressed[cp_size + 2] = crt[i + 2];
+        cp_size += 3;
+        i += 2;
+      }
+      printf("\n");
+    } else {
+      // on ajoute le premiers pixel
+      cpressed[i] = crt[i];
+      printf("Cpressed n°%d = %u\n", cp_size, cpressed[i]);
+      cp_size++;
+    }
+  }
+  printf("Yeah finished ! Final result :\n");
+ // print_int_vec(index, idx_size);
+  print_byte_vec(cpressed, cp_size);
+
+  FILE *fichier = NULL;
+  fichier = fopen("test.txt", "w+");
+  if (fichier != NULL) {
+    // On lit et on écrit dans le fichier
+    // ...
+    fclose(fichier); // On ferme le fichier qui a été ouvert
+  }
+}
+

@@ -119,11 +119,10 @@ void upsidedown(Image *img) {
   }
 }
 
-/* ------------------------------------------------------------------------------*/
-void RLE(Image* img){}
+/* -------------------- Gestion vecteur -------------------------*/
 
 /* Fonction pour afficher tout le contenu d'un vecteur de GLubyte
-   GLubyte* -> printf */
+ */
 void print_byte_vec(GLubyte *vec, int taille) {
   printf("taille : %d\n", taille);
   for (int i = 0; i <= taille; i++) {
@@ -133,7 +132,7 @@ void print_byte_vec(GLubyte *vec, int taille) {
 }
 
 /* Fonction pour afficher tout le contenu d'un vecteur de char
-   char* -> printf */
+ */
 void print_str_vec(char *vec, int taille) {
   printf("taille : %d\n", taille);
   for (int i = 0; i <= taille; i++) {
@@ -142,18 +141,29 @@ void print_str_vec(char *vec, int taille) {
   printf("\n");
 }
 
-
 /* Fonction pour remplacer tout le contenu d'un vecteur par des 0
-   GLubyte*, int -> void */
+ */
 void clear_vec(GLubyte *vec, int taille) {
   for (int i = 0; i < taille; i++) {
     vec[i] = 0;
   }
 }
 
+/* Fonction pour ajouter une partie d'un vecteur de GLubyte à la fin d'un autre
+ */
+void vec_append(GLubyte *vec, int idx_start, int idx_end, GLubyte *rst,
+                int rst_size) {
+  for (int i = idx_start; i < idx_end; i++) {
+    rst_size++;
+    rst[rst_size] = vec[i];
+  }
+}
+
+// ------------------ Lecture / Ecriture --------------------
+
 /* Fonction pour écrire tout le contenu d'un vecteur de GLubyte dans un .txt
-   GLubyte* -> fichier.txt */
-void write_cpressed(GLubyte* cpressed, int cp_size){
+ */
+void write_cpressed(GLubyte *cpressed, int cp_size) {
   // Ecriture de l'image dans le fichier texte
   FILE *fichier = NULL;
   fichier = fopen("RLE_cpressed.txt", "w");
@@ -169,17 +179,16 @@ void write_cpressed(GLubyte* cpressed, int cp_size){
 }
 
 /* Fonction pour lire tout le contenu d'un fichier.txt
-   fichier.txt -> GLubyte* */
-GLubyte* read_cpressed(int cp_size) {
-  FILE* fichier = NULL;
+ */
+GLubyte *read_cpressed(int cp_size) {
+  FILE *fichier = NULL;
   fichier = fopen("RLE_cpressed.txt", "r");
   GLubyte *rst = malloc(cp_size * sizeof(GLubyte));
   if (fichier != NULL) {
     for (int n = 0; n <= cp_size; n++) {
       rst[n] = (GLubyte)fgetc(fichier);
     }
-    printf("\nLecture :\n");
-    print_byte_vec(rst, cp_size);
+    //printf("\nLecture :\n");
     fclose(fichier);
   } else {
     printf("Error : le fichier n'a pas pu être ouvert");
@@ -188,166 +197,322 @@ GLubyte* read_cpressed(int cp_size) {
   return rst;
 }
 
-/* Fonction pour ajouter une partie d'un vecteur de GLubyte à la fin d'un autre
-   GLubyte* -> void */
-void vec_append(GLubyte* vec, int idx_start, int idx_end, GLubyte* rst, int rst_size){
-  //printf("Appending vec of size %d\n", rst_size);
-  for(int i = idx_start; i < idx_end; i++){
-    //printf("[%d]", vec[i]);
-    rst_size++; 
-    rst[rst_size] = vec[i];
+// --------------------- Compression/Décompression ---------------------
+
+/* Fonction qui trie les 3 couleurs
+ */
+GLubyte *sortRGB(GLubyte *data, int size) {
+  GLubyte *sorted = malloc(size * sizeof(GLubyte));
+  int sortedSize = 0;
+  for (int rgb = 0; rgb < 3; rgb++) {
+    for (int i = rgb; i < size; i += 3) {
+      sorted[sortedSize] = data[i];
+      sortedSize++;
+    }
   }
-  //printf("\n");
+  /* printf("\nSorted data :\n");
+  print_byte_vec(sorted, size - 1);
+  printf("\n"); */
+  return sorted;
 }
 
+/* Fonction qui compresse un tableau trié de couleurs
+ */
+GLubyte *compressRGBopti(GLubyte *data, int size, int *cp_size) {
+  GLubyte *cpressed = malloc((size + size/ 128) * sizeof(GLubyte));
+  int mul_pos = 0;
+  for (int i = 0; i < size; i++) {
+    // Ajout de la première couleur et du premier multiplicateur
+    if (i < 1) {
+      cpressed[*cp_size] = 1;
+      *cp_size += 1;
+      cpressed[*cp_size] = data[i];
+    } else {
+      // cf : fichier Liste_des_test.txt
+      if (cpressed[*cp_size] == data[i]) {
+        if (cpressed[mul_pos] == 1) { // 1
+          cpressed[mul_pos]++;
 
+        } else if (cpressed[mul_pos] > 128) { // 2
+          // Le test ne doit pas s'effectuer au dernier elem
+          //  Test du cas posant problème
+          if (cpressed[*cp_size] == data[i + 1] && i < size - 1) {
+            cpressed[mul_pos]++;
+            mul_pos = *cp_size;
 
+            cpressed[*cp_size] = 2;
+            *cp_size += 1;
+            cpressed[*cp_size] = data[i];
+          } else {
+            cpressed[mul_pos]--;
+            *cp_size += 1;
+            cpressed[*cp_size] = data[i];
+          }
+        } else if (cpressed[mul_pos] == 128) { // 3
+          cpressed[mul_pos]++;
+          mul_pos = *cp_size;
 
+          cpressed[*cp_size] = 2;
+          *cp_size += 1;
+          cpressed[*cp_size] = data[i];
 
-GLubyte *decompress(GLubyte *cpressed, int cp_size, int nb_color) {
+        } else if (cpressed[mul_pos] == 127) { // 4
+          *cp_size += 2;
+          mul_pos = *cp_size - 1;
+          cpressed[*cp_size - 1] = 1;
+          cpressed[*cp_size] = data[i];
+        } else { // 5
+          cpressed[mul_pos]++;
+        }
+      } else {
+        if (cpressed[mul_pos] == 1) { // 6
+          cpressed[mul_pos] = 254;
+          *cp_size += 1;
+          cpressed[*cp_size] = data[i];
+
+        } else if (cpressed[mul_pos] <= 128) { // 7
+          *cp_size += 2;
+          mul_pos = *cp_size - 1;
+          cpressed[*cp_size - 1] = 1;
+          cpressed[*cp_size] = data[i];
+
+        } else if (cpressed[mul_pos] > 128) { // 8
+          cpressed[mul_pos]--;
+          *cp_size += 1;
+          cpressed[*cp_size] = data[i];
+        }
+      }
+    }
+  }
+  /* printf("Compressed data:\n");
+  print_byte_vec(cpressed, *cp_size);
+  printf("\n"); */
+  return cpressed;
+}
+GLubyte *compressRGB(GLubyte *data, int size, int *cp_size) {
+  GLubyte *cpressed = malloc((size + size) /*  / 128 */ * sizeof(GLubyte));
+  int mul_pos = 0;
+  for (int i = 0; i < size; i++) {
+    // Ajout de la première couleur et du premier multiplicateur
+    if (i < 1) {
+      cpressed[*cp_size] = 1;
+      *cp_size += 1;
+      cpressed[*cp_size] = data[i];
+    } else {
+      // cf : fichier Liste_des_test.txt
+      if (cpressed[*cp_size] == data[i]) {
+        if (cpressed[mul_pos] == 1) { // 1
+          cpressed[mul_pos]++;
+
+        } else if (cpressed[mul_pos] >= 128) { // 2
+          cpressed[mul_pos]++;
+          mul_pos = *cp_size;
+
+          cpressed[*cp_size] = 2;
+          *cp_size += 1;
+          cpressed[*cp_size] = data[i];
+
+        } else if (cpressed[mul_pos] == 127) { // 4
+          *cp_size += 2;
+          mul_pos = *cp_size - 1;
+          cpressed[*cp_size - 1] = 1;
+          cpressed[*cp_size] = data[i];
+        } else { // 5
+          cpressed[mul_pos]++;
+        }
+      } else {
+        if (cpressed[mul_pos] == 1) { // 6
+          cpressed[mul_pos] = 254;
+          *cp_size += 1;
+          cpressed[*cp_size] = data[i];
+
+        } else if (cpressed[mul_pos] <= 128) { // 7
+          *cp_size += 2;
+          mul_pos = *cp_size - 1;
+          cpressed[*cp_size - 1] = 1;
+          cpressed[*cp_size] = data[i];
+
+        } else if (cpressed[mul_pos] > 128) { // 8
+          cpressed[mul_pos]--;
+          *cp_size += 1;
+          cpressed[*cp_size] = data[i];
+        }
+      }
+    }
+  }
+  /* printf("Compressed data:\n");
+  print_byte_vec(cpressed, *cp_size);
+  printf("\n"); */
+  return cpressed;
+}
+GLubyte *compressRGBnaif(GLubyte *data, int size, int *cp_size) {
+  GLubyte *cpressed = malloc((size*3) /*  / 128 */ * sizeof(GLubyte));
+  int mul_pos = 0;
+  for (int i = 0; i < size; i++) {
+    if (i < 1) {
+      cpressed[*cp_size] = 1;
+      *cp_size += 1;
+      cpressed[*cp_size] = data[i];
+    } else {
+      if (cpressed[*cp_size] == data[i]) {
+        if (cpressed[mul_pos] < 254) {
+          cpressed[mul_pos]++;
+        } else {
+          *cp_size += 2;
+          mul_pos = *cp_size - 1;
+          cpressed[*cp_size - 1] = 1;
+          cpressed[*cp_size] = data[i];
+        }
+      } else {
+        *cp_size += 2;
+        mul_pos = *cp_size - 1;
+        cpressed[*cp_size - 1] = 1;
+        cpressed[*cp_size] = data[i];
+      }
+    }
+  }
+  /* printf("Compressed data:\n");
+  print_byte_vec(cpressed, *cp_size);
+  printf("\n"); */
+  return cpressed;
+}
+/* Fonction qui décompresse un vecteur de GLubyte
+ */
+GLubyte *decompressRGB(GLubyte *cpressed, int cp_size, int nb_color) {
   GLubyte *decompImg = malloc(nb_color * sizeof(GLubyte));
-  GLubyte *finalImg = malloc(nb_color * sizeof(GLubyte));
   int decomp_size = -1;
   for (int n = 0; n <= cp_size; n++) {
     char multipl = (char)cpressed[n];
     if (multipl <= 0) {
-      vec_append(cpressed, n, n + (multipl * -1), decompImg, decomp_size);
+      vec_append(cpressed, n + 1, n + 1 + (multipl * -1), decompImg,
+                 decomp_size);
       decomp_size += (multipl * -1);
       n += multipl * -1;
 
     } else {
       for (int x = 0; x < multipl; x++) {
         decomp_size++;
-        decompImg[decomp_size] = cpressed[n+1];
+        decompImg[decomp_size] = cpressed[n + 1];
       }
       n++;
     }
   }
 
   // La taille a augmentée dans la dernière itération de la boucle
-  decomp_size--;
-  printf("\nDecomp Img :\n");
-  print_byte_vec(decompImg, nb_color - 1);
+  /* decomp_size--;
+  printf("Decomp Img :\n");
+  print_byte_vec(decompImg, nb_color - 1); */
+  return decompImg;
+}
 
-  int nb_pixel = nb_color/3;
+/* Fonction qui recréé les données de l'image
+à partir d'un tableau trié de couleurs
+*/
+GLubyte *decomp_toRGB(GLubyte *decompImg, int nb_color) {
+  GLubyte *finalImg = malloc(nb_color * sizeof(GLubyte));
+  int nb_pixel = nb_color / 3;
   int finalSize = 0;
-  //printf("nb pixel = %d\n", nb_pixel);
-  for(int x = 0; x < nb_pixel; x++) {
-    //printf("x = %d\n", x);
-    /* printf("[%d -> %d]\n", finalSize, decompImg[x]);
-    printf("[%d -> %d]\n", finalSize + 1, decompImg[x + nb_pixel]);
-    printf("[%d -> %d]\n", finalSize + 2, decompImg[x + nb_pixel * 2]); */
-
+  for (int x = 0; x < nb_pixel; x++) {
     finalImg[finalSize] = decompImg[x];
     finalImg[finalSize + 1] = decompImg[x + nb_pixel];
     finalImg[finalSize + 2] = decompImg[x + nb_pixel * 2];
     finalSize += 3;
   }
 
-  /* for(int j = 0; j < nb_pixel; j+=3) {
-    for (int x = 0; x < 3; x++) {
-      finalImg[j*x] = decompImg[x];
-      finalImg[x + 1] = decompImg[x + nb_pixel];
-      finalImg[x + 2] = decompImg[x + nb_pixel * 2];
-    }
-  } */
-
-  printf("\nFinal Img :\n");
-  print_byte_vec(finalImg, finalSize-1);
+  /* printf("\nFinal Img :\n");
+  print_byte_vec(finalImg, finalSize - 1); */
   return finalImg;
 }
 
-void RLE_intel(Image *img) {
-  int i, nb_pixels, cp_size = -1, mul_dist = 1;
+void RLE(Image *img) {
+  int nb_pixels, cp_size = 0;
   nb_pixels = img->sizeX * img->sizeY;
   int nb_color = nb_pixels * 3;
-  GLubyte *crt;
-  GLubyte *cpressed = malloc((nb_color + nb_color / 128) * sizeof(GLubyte));
-  print_byte_vec(img->data, nb_color-1);
+  /* printf("Image data:\n");
+  print_byte_vec(img->data, nb_color - 1); */
 
-  for(int rgb = 0; rgb < 3; rgb++){
-    for (crt = img->data, i = rgb; i < nb_color; i += 3) {
-      //printf("i = %d\n", i);
-      //Ajout de la première couleur et du premier multiplicateur
-      if (i < 1) {
-        //printf("start\n");
-        cp_size++;
-        cpressed[cp_size] = 1;
-        cp_size++;
-        cpressed[cp_size] = crt[i];
-      } else {
-        //cf : fichier Liste_des_test.txt
-        //printf("%d == %d\n", cpressed[cp_size], crt[i]);
-        if (cpressed[cp_size] == crt[i]) {
-          if (cpressed[cp_size - mul_dist] == 1) { // 1
-            //printf("1\n");
-            cpressed[cp_size - mul_dist] ++;
+  GLubyte *sorted;
+  sorted = sortRGB(img->data, nb_color);
 
-          } else if (cpressed[cp_size - mul_dist] >= 128) { // 2
-            //printf("2\n");
-            cpressed[cp_size - mul_dist]++;
-            mul_dist = 1;
+  int *ref_size = &cp_size;
+  GLubyte *cpressed;
+  cpressed = compressRGB(sorted, nb_color, ref_size);
 
-            cpressed[cp_size] = 2;
-            cp_size++;
-            cpressed[cp_size] = crt[i];
+  write_cpressed(cpressed, cp_size);
+  GLubyte *readImg = read_cpressed(cp_size);
 
-          } else if (cpressed[cp_size - 1] == 127) { // 3
-            //printf("3\n");
-            cp_size += 2;
-            mul_dist = 1;
-            cpressed[cp_size - 1] = 1;
-            cpressed[cp_size] = crt[i];
-          } else {
-            //printf("default\n");
-            cpressed[cp_size - mul_dist]++;
-          }
-        } else {
-          if (cpressed[cp_size - mul_dist] == 1) { // 4
-            //printf("4\n");
-            cpressed[cp_size - 1] = 254;
-            cp_size++, mul_dist++;
-            cpressed[cp_size] = crt[i];
+  GLubyte *decompImg;
+  decompImg = decompressRGB(readImg, cp_size, nb_color);
 
-          } else if (cpressed[cp_size - mul_dist] <= 128) { // 5
-            //printf("5\n");
-            cp_size += 2;
-            mul_dist = 1;
-            cpressed[cp_size - 1] = 1;
-            cpressed[cp_size] = crt[i];
+  GLubyte *finalImg;
+  finalImg = decomp_toRGB(decompImg, nb_color);
 
-          } else if (cpressed[cp_size - mul_dist] > 128) { // 6
-            //printf("6\n");
-            cpressed[cp_size - mul_dist]--;
-            cp_size++, mul_dist++;
-            cpressed[cp_size] = crt[i];
-          }
-        }
-
-      }
-      /* print_byte_vec(cpressed, cp_size);
-      printf("\n"); */
-    }
-  }
-  printf("\nImage compressée :\n");
-  print_byte_vec(cpressed, cp_size);
-
-  
-
-  
-  printf("\nDécompression : \n");
-  GLubyte* finalImg;
-  finalImg = decompress(cpressed, cp_size, nb_color);
-  
   Image *image = malloc(sizeof(Image));
   image->sizeX = img->sizeX;
   image->sizeY = img->sizeY;
   image->data = finalImg;
-  
+
   imagesave_PPM("finalImage.ppm", image);
 }
 
+void RLE_opti(Image *img) {
+  int nb_pixels, cp_size = 0;
+  nb_pixels = img->sizeX * img->sizeY;
+  int nb_color = nb_pixels * 3;
+  /* printf("Image data:\n");
+  print_byte_vec(img->data, nb_color - 1); */
 
-void sobel(Image *img) {}
+  GLubyte *sorted;
+  sorted = sortRGB(img->data, nb_color);
 
-void gris(Image *img) {}
+  int *ref_size = &cp_size;
+  GLubyte *cpressed;
+  cpressed = compressRGBopti(sorted, nb_color, ref_size);
+
+  write_cpressed(cpressed, cp_size);
+  GLubyte *readImg = read_cpressed(cp_size);
+
+  GLubyte *decompImg;
+  decompImg = decompressRGB(readImg, cp_size, nb_color);
+
+  GLubyte *finalImg;
+  finalImg = decomp_toRGB(decompImg, nb_color);
+
+  Image *image = malloc(sizeof(Image));
+  image->sizeX = img->sizeX;
+  image->sizeY = img->sizeY;
+  image->data = finalImg;
+
+  imagesave_PPM("finalImage.ppm", image);
+}
+
+void RLE_naif(Image *img) {
+  int nb_pixels, cp_size = 0;
+  nb_pixels = img->sizeX * img->sizeY;
+  int nb_color = nb_pixels * 3;
+  printf("Image data:\n");
+  // print_byte_vec(img->data, nb_color - 1);
+
+  GLubyte *sorted;
+  sorted = sortRGB(img->data, nb_color);
+
+  int *ref_size = &cp_size;
+  GLubyte *cpressed;
+  cpressed = compressRGBnaif(sorted, nb_color, ref_size);
+
+  write_cpressed(cpressed, cp_size);
+  GLubyte *readImg = read_cpressed(cp_size);
+
+  GLubyte *decompImg;
+  decompImg = decompressRGB(readImg, cp_size, nb_color);
+
+  GLubyte *finalImg;
+  finalImg = decomp_toRGB(decompImg, nb_color);
+
+  Image *image = malloc(sizeof(Image));
+  image->sizeX = img->sizeX;
+  image->sizeY = img->sizeY;
+  image->data = finalImg;
+
+  imagesave_PPM("finalImage.ppm", image);
+}

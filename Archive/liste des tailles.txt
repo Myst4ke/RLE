@@ -1,0 +1,41 @@
+contreplongée :
+taille : 1 620 061 octets
+RLE : 1 643 444 octets  taux : 101.4
+RLE opti : 1 550 688 octets  taux : 95.7
+RLE naif : 2 643 672 octets  taux : 163
+
+can_bottom :
+taille : 2 359 338 octets
+RLE : 2 365 700 octets  taux : 100.2
+RLE opti : 2 243 527 octets  taux : 95
+RLE naif : 3 759 086 octets  taux : 159
+
+louche : 
+taille : 705 061
+RLE : 713 910 taux : 101
+RLE opti  : 678 303 octets  taux : 96.2
+RLE naif : 1 191 996 octets  taux : 169
+
+hugo : 
+taille : 1 607 821
+RLE : 1 659 757 taux : 103
+RLE opti : 1 552 974   taux : 96.5
+RLE naif : 2 567 458  taux : 159
+
+rgbBig :
+taille : 7 559  
+RLE : 802 taux : 10.6
+RLE opti : 802  taux : 10.6
+RLE naif : 802  taux : 10.6
+
+lune :
+taille : 1 649 726 
+RLE : 1 301 636 taux : 78.9
+RLE opti : 1 239 008  taux : 75
+RLE naif : 2 012 846  taux : 122
+
+mandala : 
+taille : 3 026 792 
+RLE : 1 566 716 taux : 51.7
+RLE opti : 1 500 146  taux : 49.5
+RLE naif : 2 548 982  taux : 84.2
